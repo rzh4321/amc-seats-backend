@@ -39,7 +39,7 @@ class NotificationRequest(BaseModel):
     movie: str  # "Heart Eyes"
     theater: str  # "AMC Empire 25"
     showtime: str  # "7:45 pm"
-    # are_specifically_requested: bool
+    areSpecficallyRequested: bool
 
 
 @app.post("/notifications")
@@ -145,7 +145,7 @@ async def create_notification(
                     user_email=request.email,
                     seat_number=seat_number,
                     showtime_id=showtime_id,
-                    is_specifically_requested=False,
+                    is_specifically_requested=request.areSpecficallyRequested,
                 )
             )
 

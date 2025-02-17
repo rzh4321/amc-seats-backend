@@ -9,9 +9,10 @@ from app.models.theater import Theater
 from app.models.movie import Movie
 from app.models.showtime import Showtime
 from sqlalchemy.sql import func
+import pytz
 
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 
 
 # uvicorn app.main:app --reload
@@ -35,10 +36,9 @@ class NotificationRequest(BaseModel):
     email: str  # "email@gmail.com"
     seatNumbers: list[str]  # ['A1','A2']
     url: str
-    showDate: date
     movie: str  # "Heart Eyes"
     theater: str  # "AMC Empire 25"
-    showtime: str  # "7:45 pm"
+    showtime: datetime
     areSpecficallyRequested: bool
 
 
@@ -57,12 +57,7 @@ async def create_notification(
     )
 
     if not existing_theater:
-        new_theater = Theater(name=request.theater)
-
-        db.add(new_theater)
-        db.commit()
-        print(f"added new theater {request.theater} to db")
-        theater_id = new_theater.id
+        return {"error": "This theater is not yet supported."}
     else:
         theater_id = existing_theater.id
 
@@ -85,25 +80,19 @@ async def create_notification(
         movie_id = existing_movie.id
         existing_movie.last_detected = func.now()
 
-    showtime_obj = datetime.strptime(request.showtime, "%I:%M %p").time()
-    # Combine the date and time into a datetime object
-    show_datetime = datetime.combine(request.showDate, showtime_obj)
-    is_past = show_datetime < datetime.now()
+    
+    now = datetime.now(pytz.UTC)
+    is_past = request.showtime < now
     if is_past:
-        print(f"SHOWTIME OBJ IS BEFORE TODAY: ", show_datetime)
+        print(f"SHOWTIME ({request.showtime}) IS BEFORE TODAY ({now})")
         return {"error": "This movie showing no longer exists."}
-
     # we can now commit the new movie, if it didnt exist already
     db.commit()
     # check if showtime already exists
     existing_showtime = (
         db.query(Showtime)
         .filter(
-            Showtime.movie_id == movie_id,
-            Showtime.showtime == showtime_obj,
-            Showtime.theater_id == theater_id,
-            Showtime.show_date == request.showDate,
-            Showtime.seating_url == request.url,
+            Showtime.seating_url == request.url
         )
         .first()
     )
@@ -111,14 +100,14 @@ async def create_notification(
     if not existing_showtime:
         new_showtime = Showtime(
             movie_id=movie_id,
-            showtime=showtime_obj,
+            showtime=request.showtime,
             theater_id=theater_id,
-            show_date=request.showDate,
             seating_url=request.url,
         )
 
-        db.add(new_showtime)
         print(f"NEW SHOWTIME")
+        db.add(new_showtime)
+        db.commit()
         showtime_id = new_showtime.id
     else:
         showtime_id = existing_showtime.id
@@ -157,7 +146,7 @@ async def create_notification(
     for notification in new_notifications:
         db.add(notification)
 
-    # commit the new showtime and notifs
+    # commit the new notifs
     db.commit()
     print(f"ADDED NEW NOTIFS")
 

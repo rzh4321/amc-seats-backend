@@ -1,6 +1,7 @@
 annotated-types==0.7.0
 anyio==4.8.0
 bcrypt==4.2.1
+black==25.1.0
 certifi==2025.1.31
 cffi==1.17.1
 click==8.1.8
@@ -13,8 +14,11 @@ httptools==0.6.4
 httpx==0.28.1
 idna==3.10
 iniconfig==2.0.0
+mypy-extensions==1.0.0
 packaging==24.2
 passlib==1.7.4
+pathspec==0.12.1
+platformdirs==4.3.6
 pluggy==1.5.0
 psycopg2-binary==2.9.10
 pyasn1==0.6.1
@@ -26,6 +30,7 @@ pytest==8.3.4
 python-dotenv==1.0.1
 python-jose==3.3.0
 python-multipart==0.0.20
+pytz==2025.1
 PyYAML==6.0.2
 rsa==4.9
 six==1.17.0

@@ -10,10 +10,14 @@ from app.models.movie import Movie
 from app.models.showtime import Showtime
 from sqlalchemy.sql import func
 import pytz
-
-
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import os
+import smtplib
+import logging
 from datetime import date, datetime, timedelta, timezone
 
+logger = logging.getLogger(__name__)
 
 # uvicorn app.main:app --reload
 
@@ -42,6 +46,101 @@ class NotificationRequest(BaseModel):
     areSpecficallyRequested: bool
 
 
+def send_email(
+    to_email,
+    seat_numbers,
+    page_url,
+    date_string,
+    movie,
+    theater,
+    time_string,
+    is_specifically_requested,
+    showtime_id,
+):
+    # 500 emails per day
+    password = os.getenv("app_password")
+    smtp_server = "smtp.gmail.com"
+    smtp_port = 587
+    sender_email = "amcseatalert@gmail.com"
+
+    all_notifications_url = f"https://amc-seats-backend-production.up.railway.app/unsubscribe/{showtime_id}/{to_email}"
+
+    intro = f"""You have requested to be notified for the following seats"""
+
+    email_body = f"""
+    <html>
+    <head>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+        <style>
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+        </style>
+    </head>
+    <body style="background-color: #1A1A1A; color: #FFFFFF; font-family: 'Inter', sans-serif; line-height: 1.6; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #222222; border-radius: 12px; overflow: hidden;">
+            <div style="background-color: #000000; padding: 24px; text-align: center; border-bottom: 2px solid #333333;">
+                <h1 style="color: #F5F5F5; font-size: 28px; margin: 0;">AMC Seat Alert</h1>
+            </div>
+            
+            <div style="padding: 32px 24px;">
+                <h2 style="color: #E21836; font-size: 24px; margin-bottom: 24px; text-align: center;">{intro}</h2>
+                
+                <div style="background-color: #2A2A2A; padding: 24px; border-radius: 8px; margin-bottom: 32px;">
+                    <h3 style="color: #FFFFFF; font-size: 22px; margin-bottom: 16px; text-align: center;">{movie}</h3>
+                    <p style="margin-bottom: 12px;"><span style="color: #999999;">Theater:</span> {theater}</p>
+                    <p style="margin-bottom: 12px;"><span style="color: #999999;">Date:</span> {date_string}</p>
+                    <p style="margin-bottom: 12px;"><span style="color: #999999;">Time:</span> {time_string}</p>
+                    <p style="margin-bottom: 12px;"><span style="color: #999999;">Seat:</span> {', '.join(seat_numbers) if is_specifically_requested else 'Any'}</p>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 32px;">
+                    <a href="{page_url}" style="display: inline-block; background-color: #E21836; color: #FFFFFF; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Seating Map</a>
+                </div>
+
+                <div style="border-top: 1px solid #333333; padding-top: 24px;">
+                    <p style="color: #999999; margin-bottom: 16px; text-align: center;">Didn't request this notification or changed your mind?</p>
+                    
+                    
+                    <div style="text-align: center;">
+                        <a href="{all_notifications_url}" style="display: inline-block; background-color: #333333; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-size: 14px;">Unsubscribe from this showing</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background-color: #000000; padding: 16px; text-align: center;">
+                <p style="color: #666666; font-size: 12px; margin: 0;">This email was sent automatically. Do not reply.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"Notification Confirmation - {movie} at {theater}"
+    msg["From"] = sender_email
+    msg["To"] = to_email
+
+    # Attach both plain text and HTML versions
+    text_part = MIMEText(email_body.replace("<br>", "\n"), "plain")
+    html_part = MIMEText(email_body, "html")
+    msg.attach(text_part)
+    msg.attach(html_part)
+
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(sender_email, password)
+            server.send_message(msg)
+            logging.info(f"Email confirmation sent successfully to {to_email}")
+            return True
+    except Exception as e:
+        logging.error(f"Error sending email confirmation: {str(e)}")
+        return False
+
+
 @app.post("/notifications")
 async def create_notification(
     request: NotificationRequest, db: Session = Depends(get_db)
@@ -60,6 +159,7 @@ async def create_notification(
         return {"error": "This theater is not yet supported."}
     else:
         theater_id = existing_theater.id
+        timezone = existing_theater.timezone
 
     # check if movie already exists
     existing_movie = (
@@ -149,6 +249,14 @@ async def create_notification(
     # commit the new notifs
     db.commit()
     print(f"ADDED NEW NOTIFS")
+    tz = pytz.timezone(timezone)
+    local_datetime = request.showtime.astimezone(tz)
+    # Format date like "Sunday, February 16, 2025"
+    date_string = local_datetime.strftime("%A, %B %d, %Y")
+    # Format time like "7:30 pm"
+    time_string = local_datetime.strftime("%I:%M %p").lstrip("0").lower()
+
+    send_email(request.email, request.seatNumbers, request.url, date_string, request.movie, request.theater, time_string, request.areSpecficallyRequested, showtime_id)
 
     return {
         "exists": False,

@@ -181,7 +181,6 @@ async def create_notification(
         movie_id = existing_movie.id
         existing_movie.last_detected = func.now()
 
-    
     now = datetime.now(pytz.UTC)
     is_past = request.showtime < now
     if is_past:
@@ -191,11 +190,7 @@ async def create_notification(
     db.commit()
     # check if showtime already exists
     existing_showtime = (
-        db.query(Showtime)
-        .filter(
-            Showtime.seating_url == request.url
-        )
-        .first()
+        db.query(Showtime).filter(Showtime.seating_url == request.url).first()
     )
 
     if not existing_showtime:
@@ -257,7 +252,17 @@ async def create_notification(
     # Format time like "7:30 pm"
     time_string = local_datetime.strftime("%I:%M %p").lstrip("0").lower()
 
-    send_email(request.email, request.seatNumbers, request.url, date_string, request.movie, request.theater, time_string, request.areSpecficallyRequested, showtime_id)
+    send_email(
+        request.email,
+        request.seatNumbers,
+        request.url,
+        date_string,
+        request.movie,
+        request.theater,
+        time_string,
+        request.areSpecficallyRequested,
+        showtime_id,
+    )
 
     return {
         "exists": False,
@@ -327,6 +332,18 @@ async def unsubscribe(notification_id: int, db: Session = Depends(get_db)):
         movie = db.query(Movie).filter(Movie.id == showtime.movie_id).first()
         theater = db.query(Theater).filter(Theater.id == showtime.theater_id).first()
 
+        timezone = theater.timezone
+        movie_datetime = showtime.showtime
+        # Convert UTC to specified timezone
+        tz = pytz.timezone(timezone)
+        local_datetime = movie_datetime.astimezone(tz)
+
+        # Format date like "Sunday, February 16, 2025"
+        date_string = local_datetime.strftime("%A, %B %d, %Y")
+
+        # Format time like "7:30 pm"
+        time_string = local_datetime.strftime("%I:%M %p").lstrip("0").lower()
+
         db.delete(notification)
         db.commit()
 
@@ -384,8 +401,8 @@ async def unsubscribe(notification_id: int, db: Session = Depends(get_db)):
                 <div class="movie-details">
                     <p><strong>Movie:</strong> {movie.name}</p>
                     <p><strong>Theater:</strong> {theater.name}</p>
-                    <p><strong>Date:</strong> {showtime.show_date.strftime('%A, %B %d, %Y')}</p>
-                    <p><strong>Time:</strong> {showtime.showtime.strftime('%I:%M %p')}</p>
+                    <p><strong>Date:</strong> {date_string}</p>
+                    <p><strong>Time:</strong> {time_string}</p>
                     <p><strong>Seat:</strong> {notification.seat_number}</p>
                 </div>
                 <p class="seat-info">You will no longer receive notifications for this specific seat.</p>
@@ -460,6 +477,18 @@ async def unsubscribe(showtime_id: int, email: str, db: Session = Depends(get_db
         movie = db.query(Movie).filter(Movie.id == showtime.movie_id).first()
         theater = db.query(Theater).filter(Theater.id == showtime.theater_id).first()
 
+        timezone = theater.timezone
+        movie_datetime = showtime.showtime
+        # Convert UTC to specified timezone
+        tz = pytz.timezone(timezone)
+        local_datetime = movie_datetime.astimezone(tz)
+
+        # Format date like "Sunday, February 16, 2025"
+        date_string = local_datetime.strftime("%A, %B %d, %Y")
+
+        # Format time like "7:30 pm"
+        time_string = local_datetime.strftime("%I:%M %p").lstrip("0").lower()
+
         # Delete all notifications for this showtime/email combination
         for notification in notifications:
             db.delete(notification)
@@ -519,8 +548,8 @@ async def unsubscribe(showtime_id: int, email: str, db: Session = Depends(get_db
                 <div class="movie-details">
                     <p><strong>Movie:</strong> {movie.name}</p>
                     <p><strong>Theater:</strong> {theater.name}</p>
-                    <p><strong>Date:</strong> {showtime.show_date.strftime('%A, %B %d, %Y')}</p>
-                    <p><strong>Time:</strong> {showtime.showtime.strftime('%I:%M %p')}</p>
+                    <p><strong>Date:</strong> {date_string}</p>
+                    <p><strong>Time:</strong> {time_string}</p>
                 </div>
                 <p class="seats">Unsubscribed from {len(notifications)} seat notification{'s' if len(notifications) != 1 else ''}</p>
             </div>

@@ -175,6 +175,7 @@ async def create_notification(
         new_movie = Movie(name=request.movie, last_detected=func.now())
 
         db.add(new_movie)
+        db.commit()
         print("NEW MOVIE")
         movie_id = new_movie.id
     else:

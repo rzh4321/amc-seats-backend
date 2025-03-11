@@ -1,12 +1,12 @@
-# AMC Seats Backend Server
+# AMC SeatAlert Backend
 
-FastAPI server component of the AMC Seat Checker system. This server handles seat notification requests and manages the PostgreSQL database for seat availability monitoring.
+FastAPI server of the [AMC SeatAlert Chrome extension](https://chromewebstore.google.com/detail/amc-seatalert/gcehgmpfomiadbpkllbhmckebodcjkbe?hl=en&authuser=0). This server handles seat notification requests and manages the PostgreSQL database for seat availability monitoring.
 
 ## Overview
 
 This backend server provides a REST API endpoint that:
 
-- Accepts notification requests from the [AMC Seat Checker Chrome extension](https://github.com/rzh4321/amc-seats)
+- Accepts notification requests from the [AMC SeatAlert Chrome extension](https://github.com/rzh4321/amc-seats)
 - Manages seat notification subscriptions in a PostgreSQL database
 - Prevents duplicate notification requests
 
@@ -92,7 +92,6 @@ Response:
 This server is part of a larger system:
 
 - [AMC Seat Checker Chrome Extension](https://github.com/rzh4321/amc-seats)
-- Seat Availability Monitor
 
 ## Development
 

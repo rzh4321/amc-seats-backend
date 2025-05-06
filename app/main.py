@@ -64,7 +64,7 @@ def send_email(
     smtp_port = 587
     sender_email = "amcseatalert@gmail.com"
 
-    all_notifications_url = f"https://amc-seats-backend-production.up.railway.app/unsubscribe/{showtime_id}/{to_email}"
+    all_notifications_url = f"https://amc-seats-backend.onrender.com/unsubscribe/{showtime_id}/{to_email}"
 
     intro = f"""You have requested to be notified for the following seats"""
 
